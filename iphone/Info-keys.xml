@@ -1,0 +1,10 @@
+Reference only - project.yml already sets all of these.
+<key>CFBundleDisplayName</key><string>Life360</string>
+<key>UIBackgroundModes</key>
+<array><string>audio</string><string>location</string></array>
+<key>NSExtension</key>
+<dict>
+  <key>NSExtensionAttributes</key>
+  <dict><key>IsASCIICapable</key><true/><key>RequestsOpenAccess</key><true/></dict>
+  <key>NSExtensionPointIdentifier</key><string>com.apple.keyboard-service</string>
+</dict>

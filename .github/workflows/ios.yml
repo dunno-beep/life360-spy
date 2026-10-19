@@ -1,0 +1,20 @@
+name: Build iOS IPA
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - run: |
+          xcodebuild -project Life360.xcodeproj -scheme Life360 \
+            -sdk iphoneos -configuration Release -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+      - run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/Life360.app Payload/
+          zip -qr Life360.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: { name: Life360-ipa, path: Life360.ipa }

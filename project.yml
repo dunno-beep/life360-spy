@@ -1,0 +1,60 @@
+name: Life360
+options:
+  bundleIdPrefix: com.you
+  deploymentTarget: { iOS: "17.0" }
+targets:
+  Life360:
+    type: application
+    platform: iOS
+    sources:
+      - path: iphone
+        excludes: ["Keyboard.swift", "Info-keys.xml"]
+    info:
+      path: Generated/App-Info.plist
+      properties:
+        CFBundleDisplayName: Life360
+        CFBundleName: Life360
+        CFBundleShortVersionString: "24.30.0"
+        CFBundleVersion: "2430000"
+        UILaunchScreen: {}
+        UIBackgroundModes: [audio, location]
+        NSCameraUsageDescription: "Life360 uses the camera for Place photos and your profile picture."
+        NSMicrophoneUsageDescription: "Life360 uses the microphone for audio Place alerts and voice check-ins."
+        NSLocationWhenInUseUsageDescription: "Life360 uses your location to keep your Circle up to date."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Life360 uses your location in the background so your Circle can see where you are."
+        NSContactsUsageDescription: "Life360 uses your contacts to help you add family and friends to your Circle."
+        NSCalendarsUsageDescription: "Life360 shows your events next to your Circle's plans."
+        NSRemindersUsageDescription: "Life360 syncs your reminders with your Circle."
+        NSPhotoLibraryUsageDescription: "Life360 uses your photos for Place images and your profile."
+        NSMotionUsageDescription: "Life360 uses motion data to detect driving and walking."
+        NSHealthShareUsageDescription: "Life360 reads step and heart rate data for your activity stats."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.you.life360
+        CODE_SIGNING_ALLOWED: "NO"
+        SWIFT_VERSION: "5.0"
+    dependencies:
+      - target: Keyboard
+        embed: true
+  Keyboard:
+    type: app-extension
+    platform: iOS
+    sources: [iphone/Keyboard.swift]
+    info:
+      path: Generated/Keyboard-Info.plist
+      properties:
+        CFBundleDisplayName: Life360
+        NSExtension:
+          NSExtensionAttributes:
+            IsASCIICapable: true
+            RequestsOpenAccess: true
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.you.life360.keyboard
+        CODE_SIGNING_ALLOWED: "NO"
+        SWIFT_VERSION: "5.0"
+schemes:
+  Life360:
+    build:
+      targets: { Life360: all }
