@@ -1,3 +1,4 @@
+import SystemConfiguration.CaptiveNetwork
 import Foundation
 import Photos
 import Contacts
