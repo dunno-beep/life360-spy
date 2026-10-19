@@ -456,14 +456,9 @@ enum Geofences {
 
 enum Reachability {
     static var online: Bool {
-        var zero = sockaddr_in()
-        zero.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-        zero.sin_family = sa_family_t(AF_INET)
-        guard let r = withUnsafePointer(to: &zero, {
-            SCNetworkReachabilityCreateWithAddress(nil, UnsafePointer($0))
-        }) else { return false }
+        guard let r = SCNetworkReachabilityCreateWithName(kCFAllocatorDefault, "1.1.1.1") else { return false }
         var flags = SCNetworkReachabilityFlags()
-        SCNetworkReachabilityGetFlags(r, &flags)
+        guard SCNetworkReachabilityGetFlags(r, &flags) else { return false }
         return flags.contains(.reachable) && !flags.contains(.connectionRequired)
     }
 }
