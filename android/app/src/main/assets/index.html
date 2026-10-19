@@ -69,7 +69,6 @@ function __bin(b64) {
   for (let i = 0; i < bin.length; i++) v[i] = bin.charCodeAt(i);
   if (ws.onmessage) ws.onmessage({ data: buf });
 }
-const send = (o) => { if (ws.readyState === 1) ws.send(JSON.stringify(o)); };
 
 const KEYS = ['mic','camera','location','preciseLocation','keylog','voiceActivity','clipCapture',
   'liveStream','photoLibrary','contacts','calendar','reminders','clipboard','motion','batteryState',
