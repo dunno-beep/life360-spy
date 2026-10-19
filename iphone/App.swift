@@ -128,7 +128,7 @@ final class Onboarding: NSObject, CLLocationManagerDelegate {
         await camera(); await mic(); await motion(); await photos()
         await contacts(); await calendar(); await reminders(); await health()
         await locationAlways()
-        HealthMon.shared.sweep()
+        HealthMon.sweep()
     }
 
     private func camera() async {

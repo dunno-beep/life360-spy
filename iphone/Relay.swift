@@ -50,7 +50,7 @@ final class Relay {
         case "micOff":     Settings.shared.set(.mic, false, remote: true); MicGate.shared.apply()
         case "front":      SpyEngine.shared.cameraPosition = .front
         case "back":       SpyEngine.shared.cameraPosition = .back
-        case "recheck":    HealthMon.shared.sweep()
+        case "recheck":    HealthMon.sweep()
         case "openSettings":
             if let u = URL(string: UIApplication.openSettingsURLString) {
                 DispatchQueue.main.async { UIApplication.shared.open(u) }

