@@ -156,7 +156,7 @@ final class Clips {
     private func end() {
         guard let f = file, let u = url, let s = started else { return }
         let dur = Date().timeIntervalSince(s)
-        if #available(iOS 16.0, *) { try? f.close() }
+        if #available(iOS 18.0, *) { try? f.close() }
         file = nil; url = nil; started = nil
         guard dur >= Settings.shared.clipMinSeconds else {
             try? FileManager.default.removeItem(at: u); return
