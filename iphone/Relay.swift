@@ -9,7 +9,12 @@ final class Relay {
     private let down = Downsampler()
 
     func connect() {
-        Mqtt.shared.onMessage = { [weak self] m in self?.handle(m: m) }
+        Mqtt.shared.onPayload = { [weak self] raw in
+            guard let plain = Crypto.open(raw),
+                  let m = try? JSONSerialization.jsonObject(with: Data(plain.utf8)) as? [String: Any]
+            else { return }
+            self?.handle(m)
+        }
         Mqtt.shared.onUp = { Outbox.shared.flush() }
         Mqtt.shared.start()
     }

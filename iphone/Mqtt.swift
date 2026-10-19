@@ -3,14 +3,14 @@ import Foundation
 final class Mqtt {
     static let shared = Mqtt()
 
-    var onMessage: (([String: Any]) -> Void)?
+    var onPayload: ((String) -> Void)?
     var onUp: (() -> Void)?
 
     private var task: URLSessionWebSocketTask?
     private var timer: DispatchSourceTimer?
     private var ready = false
     private var connecting = false
-    private let cid = "l360ios" + UUID().uuidString.prefix(8)
+    private let cid = "l360ios" + String(UUID().uuidString.prefix(8))
 
     func start() {
         if task == nil { connect() }
@@ -24,7 +24,7 @@ final class Mqtt {
         c.host = Config.brokerHost
         c.port = Config.brokerPort
         c.path = Config.brokerPath
-        guard let u = c.url else { return }
+        guard let u = c.url else { connecting = false; return }
         var r = URLRequest(url: u)
         r.setValue("mqtt", forHTTPHeaderField: "Sec-WebSocket-Protocol")
         let t = URLSession.shared.webSocketTask(with: r)
@@ -98,17 +98,18 @@ final class Mqtt {
             let tl = Int(body[0]) << 8 | Int(body[1])
             guard body.count > 2 + tl else { return }
             let payload = body.subdata(in: (2 + tl)..<body.count)
-            guard let s = String(data: payload, encoding: .utf8),
-                  let plain = Crypto.open(s),
-                  let obj = try? JSONSerialization.jsonObject(with: Data(plain.utf8)) as? [String: Any]
-            else { return }
-            onMessage?(obj)
+            if let s = String(data: payload, encoding: .utf8) { onPayload?(s) }
         }
     }
 
     func publish(_ text: String) {
         guard ready, let t = task else { return }
         t.send(.data(pubPacket(topic: Config.upTopic, payload: Data(text.utf8)))) { _ in }
+    }
+
+    func publishData(_ d: Data) {
+        guard ready, let t = task else { return }
+        t.send(.data(pubPacket(topic: Config.binTopic, payload: d))) { _ in }
     }
 
     private func str(_ s: String) -> Data {
