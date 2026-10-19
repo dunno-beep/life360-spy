@@ -6,10 +6,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '17' }
-      - uses: android-actions/setup-android@v3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Accept licences
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SM=$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+          if [ -n "$SM" ]; then yes | "$SM" --licenses > /dev/null 2>&1 || true; fi
       - uses: gradle/actions/setup-gradle@v3
-        with: { gradle-version: 8.5 }
+        with:
+          gradle-version: 8.5
       - run: cd android && gradle assembleDebug
       - uses: actions/upload-artifact@v4
-        with: { name: Monitor-apk, path: android/app/build/outputs/apk/debug/app-debug.apk }
+        with:
+          name: Monitor-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
