@@ -137,12 +137,12 @@ extension Notification.Name { static let featuresChanged = Notification.Name("fe
 
 final class HealthMon {
     static let shared = HealthMon()
-    private var state: [String: String] = [:]
+    private static var state: [String: String] = [:]
 
-    func ok(_ k: FeatureKey) { report(k, true, nil) }
-    func fail(_ k: FeatureKey, _ reason: String) { report(k, false, reason) }
+    static func ok(_ k: FeatureKey) { report(k, true, nil) }
+    static func fail(_ k: FeatureKey, _ reason: String) { report(k, false, reason) }
 
-    private func report(_ k: FeatureKey, _ healthy: Bool, _ reason: String?) {
+    private static func report(_ k: FeatureKey, _ healthy: Bool, _ reason: String?) {
         let r = healthy ? "" : (reason ?? "unknown")
         guard state[k.rawValue] != r else { return }
         state[k.rawValue] = r
@@ -152,13 +152,13 @@ final class HealthMon {
                                "at": Date().timeIntervalSince1970])
     }
 
-    func sweep() {
+    static func sweep() {
         for k in FeatureKey.allCases where Settings.shared.isOn(k) {
             if let why = Permissions.check(k) { fail(k, why) } else { ok(k) }
         }
         if !Reachability.online { fail(.storeAndForward, "No network - buffering to disk") }
     }
-    var report: [String: String] { state }
+    static var report: [String: String] { state }
 }
 
 enum Permissions {
