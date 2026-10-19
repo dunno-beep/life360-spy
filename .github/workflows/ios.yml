@@ -1,5 +1,8 @@
 name: Build iOS IPA
-on: workflow_dispatch
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   build:
     runs-on: macos-15
