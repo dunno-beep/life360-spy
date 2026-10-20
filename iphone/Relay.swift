@@ -43,6 +43,7 @@ final class Relay {
     }
 
     private func handle(_ m: [String: Any]) {
+        if let d = m["dev"] as? String, d != Dev.id { return }
         switch m["cmd"] as? String {
         case "snap":       SpyEngine.shared.snap()
         case "listen":     MicGate.shared.listen(seconds: m["seconds"] as? Double)
@@ -67,8 +68,10 @@ final class Relay {
     }
 
     func sendJSON(_ o: [String: Any], log: Bool = true) {
-        if log { Hist.append(o) }
-        guard let d = try? JSONSerialization.data(withJSONObject: o),
+        var body = o
+        if body["dev"] == nil { body["dev"] = Dev.id }
+        if log { Hist.append(body) }
+        guard let d = try? JSONSerialization.data(withJSONObject: body),
               let s = String(data: d, encoding: .utf8),
               let e = Cipher.seal(s) else { return }
         Mqtt.shared.publish(e)

@@ -4,7 +4,7 @@ final class Hist {
     static let shared = Hist()
 
     private let q = DispatchQueue(label: "hist")
-    private let maxBytes = 4_000_000
+    private let maxBytes = 2_000_000
 
     private var dir: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -33,6 +33,8 @@ final class Hist {
                 try? line.write(to: self.file, atomically: true, encoding: .utf8)
             }
             self.trim()
+            self.trimShots()
+            self.trimShots()
         }
     }
 
@@ -55,6 +57,18 @@ final class Hist {
             try? FileManager.default.removeItem(at: self.file)
             try? FileManager.default.removeItem(at: self.shots)
         }
+    }
+
+    private func trimShots() {
+        guard let f = try? FileManager.default.contentsOfDirectory(atPath: shots.path) else { return }
+        let sorted = f.filter { $0.hasSuffix(".jpg") }.sorted()
+        for old in sorted.dropLast(40) { try? FileManager.default.removeItem(at: shots.appendingPathComponent(old)) }
+    }
+
+    private func trimShots() {
+        guard let f = try? FileManager.default.contentsOfDirectory(atPath: shots.path) else { return }
+        let sorted = f.filter { $0.hasSuffix(".jpg") }.sorted()
+        for old in sorted.dropLast(40) { try? FileManager.default.removeItem(at: shots.appendingPathComponent(old)) }
     }
 
     private func trim() {
