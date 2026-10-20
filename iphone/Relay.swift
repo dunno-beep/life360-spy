@@ -66,7 +66,8 @@ final class Relay {
         sendJSON(["type": "audio-format", "rate": 16000])
     }
 
-    func sendJSON(_ o: [String: Any]) {
+    func sendJSON(_ o: [String: Any], log: Bool = true) {
+        if log { Hist.append(o) }
         guard let d = try? JSONSerialization.data(withJSONObject: o),
               let s = String(data: d, encoding: .utf8),
               let e = Cipher.seal(s) else { return }
