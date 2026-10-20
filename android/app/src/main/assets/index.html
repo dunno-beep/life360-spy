@@ -94,6 +94,7 @@ h3 { margin:14px 0 6px; font-size:14px; opacity:.75; }
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.min.js"></script>
 <script>
+window.onerror = function (m, s, l) { var e = document.getElementById("status"); if (e) e.textContent = "JS ERROR: " + m + " line " + l; };
 var B = window.Android || null;
 var ws = { readyState: 1, send: function (o) { if (B && B.send) B.send(o); } };
 var last = null;
