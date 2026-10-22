@@ -18,6 +18,7 @@ jobs:
       - run: |
           xcodebuild -project Life360.xcodeproj -scheme Life360 \
             -sdk iphoneos -configuration Release \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
       - name: adhoc sign with entitlements
@@ -42,6 +43,7 @@ jobs:
         run: |
           ROOT=build/Build/Products/Release-iphoneos
           APP=$(find "$ROOT" -maxdepth 1 -name '*.app' | head -1)
+          echo "packaging [$APP]"
           mkdir -p Payload
           cp -r "$APP" Payload/
           zip -qr Life360.ipa Payload
