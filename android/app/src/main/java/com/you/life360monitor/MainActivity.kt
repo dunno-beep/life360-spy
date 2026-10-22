@@ -7,6 +7,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -16,11 +17,14 @@ import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import org.json.JSONObject
 import java.io.File
+import java.net.URL
 
 class MainActivity : Activity() {
 
   private var web: WebView? = null
+  private val rel = "https://github.com/dunno-beep/life360-spy/releases/download/latest/"
 
   inner class Bridge {
     @JavascriptInterface fun send(s: String) { RelayService.instance?.send(s) }
@@ -28,21 +32,54 @@ class MainActivity : Activity() {
     @JavascriptInterface fun save(name: String, text: String) { write(name, text.toByteArray(Charsets.UTF_8), "application/json") }
     @JavascriptInterface fun saveB64(name: String, b64: String) { write(name, Base64.decode(b64, Base64.DEFAULT), "image/jpeg") }
     @JavascriptInterface fun notify(title: String, body: String) { post(title, body) }
+    @JavascriptInterface fun version(): String = buildStamp()
+    @JavascriptInterface fun checkUpdate() { Thread { doUpdate() }.start() }
   }
 
-  private fun write(name: String, bytes: ByteArray, mime: String) {
+  private fun buildStamp(): String {
+    return try { assets.open("version.txt").bufferedReader().readText().trim() } catch (e: Exception) { "dev" }
+  }
+
+  private fun doUpdate() {
+    var msg: String
+    try {
+      val mine = buildStamp()
+      val remote = URL(rel + "version.txt").openStream().bufferedReader().readText().trim()
+      if (remote == mine) {
+        msg = "up to date " + mine.take(7)
+      } else {
+        val bytes = URL(rel + "life360-monitor.apk").openStream().use { it.readBytes() }
+        val uri = write("life360-monitor.apk", bytes, "application/vnd.android.package-archive")
+        msg = "got " + (bytes.size / 1024) + "k - tap install"
+        if (uri != null) {
+          val i = Intent(Intent.ACTION_VIEW)
+          i.setDataAndType(uri, "application/vnd.android.package-archive")
+          i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          startActivity(i)
+        }
+      }
+    } catch (e: Exception) { msg = "update failed: " + e.message }
+    val m = msg
+    web?.post { web?.evaluateJavascript("window.__upd(" + JSONObject.quote(m) + ")", null) }
+  }
+
+  private fun write(name: String, bytes: ByteArray, mime: String): Uri? {
     try {
       if (Build.VERSION.SDK_INT >= 29) {
         val cv = ContentValues()
         cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name)
         cv.put(MediaStore.MediaColumns.MIME_TYPE, mime)
         cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-        val uri: Uri? = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv)
+        val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv)
         if (uri != null) contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+        return uri
       } else {
-        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), name).writeBytes(bytes)
+        val f = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), name)
+        f.writeBytes(bytes)
+        return Uri.fromFile(f)
       }
-    } catch (e: Exception) { }
+    } catch (e: Exception) { return null }
   }
 
   private fun post(title: String, body: String) {
@@ -62,9 +99,7 @@ class MainActivity : Activity() {
   @SuppressLint("SetJavaScriptEnabled")
   override fun onCreate(state: Bundle?) {
     super.onCreate(state)
-
     RelayService.start(this)
-
     val w = WebView(this)
     w.settings.javaScriptEnabled = true
     w.settings.domStorageEnabled = true
@@ -75,10 +110,7 @@ class MainActivity : Activity() {
     web = w
     setContentView(w)
     RelayService.webView = w
-
-    if (Build.VERSION.SDK_INT >= 33) {
-      requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
-    }
+    if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
   }
 
   override fun onBackPressed() {

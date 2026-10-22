@@ -71,6 +71,7 @@ h3 { margin:14px 0 6px; font-size:14px; opacity:.75; }
 <button id="saveSnap">Save snapshot</button>
 <button id="export">Export history</button>
 <button id="clear">Clear feed</button>
+<button id="update">Update</button>
 </div>
 
 <h3>Places (geofence)</h3>
@@ -442,6 +443,9 @@ state.alerts = []; state.clips = []; state.log = [];
 persist(); renderAlerts(); renderLog(); renderClips();
 };
 
+window.__upd = function (s) { setStatus(s); };
+document.getElementById("update").onclick = function () { if (!B || !B.checkUpdate) { setStatus("no updater"); return; } setStatus("checking..."); B.checkUpdate(); };
+if (B && B.version) { setStatus("build " + B.version().slice(0, 7)); }
 renderDevs(); renderAlerts(); renderLog(); renderClips(); renderPlaces();
 setTimeout(function () { map.invalidateSize(); }, 200);
 </script>
