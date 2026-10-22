@@ -1,8 +1,13 @@
 name: Build Android APK
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,13 +20,23 @@ jobs:
       - name: Accept licences
         run: |
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SM=$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
-          if [ -n "$SM" ]; then yes | "$SM" --licenses > /dev/null 2>&1 || true; fi
+          SM="${SDK}/cmdline-tools//bin/sdkmanager"
+          if [ -n "$SM" ]; then yes | "$SM" --licenses >/dev/null 2>&1 || true; fi
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.5
+      - name: stamp version
+        run: echo "${{ github.sha }}" > android/app/src/main/assets/version.txt
       - run: cd android && gradle assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Monitor-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || gh release create latest --title latest --notes "rolling build"
+          cp android/app/build/outputs/apk/debug/app-debug.apk life360-monitor.apk
+          gh release upload latest life360-monitor.apk --clobber
+          gh release upload latest android/app/src/main/assets/version.txt --clobber
