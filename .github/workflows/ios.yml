@@ -21,16 +21,17 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
+      - name: locate build
+        run: |
+          echo "--- apps under workspace ---"
+          find . -name '*.app' -path '*Release-iphoneos*' -not -path '*/Index/*' | head -5
       - name: adhoc sign with entitlements
         run: |
-          ROOT=build/Build/Products/Release-iphoneos
-          echo "--- products ---"
-          ls -la "$ROOT" || true
-          APP=$(find "$ROOT" -maxdepth 1 -name '*.app' | head -1)
+          APP=$(find . -name '*.app' -path '*Release-iphoneos*' -not -path '*/Index/*' | head -1)
           echo "app: [$APP]"
-          echo "--- nested code ---"
-          find "$APP" -maxdepth 3 -name '*.appex' || true
+          test -n "$APP" || { echo "NO APP FOUND"; exit 1; }
           APPEX=$(find "$APP" -name '*.appex' | head -1)
+          echo "appex: [$APPEX]"
           if [ -n "$APPEX" ]; then
             codesign --force --sign - --timestamp=none --entitlements Life360.entitlements "$APPEX"
           else
@@ -41,8 +42,7 @@ jobs:
           codesign -d --entitlements - "$APP"
       - name: package
         run: |
-          ROOT=build/Build/Products/Release-iphoneos
-          APP=$(find "$ROOT" -maxdepth 1 -name '*.app' | head -1)
+          APP=$(find . -name '*.app' -path '*Release-iphoneos*' -not -path '*/Index/*' | head -1)
           echo "packaging [$APP]"
           mkdir -p Payload
           cp -r "$APP" Payload/
