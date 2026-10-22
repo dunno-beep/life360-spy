@@ -9,6 +9,11 @@ targets:
     sources:
       - path: iphone
         excludes: ["Keyboard.swift", "Info-keys.xml"]
+    entitlements:
+      path: Life360.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.you.life360
     info:
       path: Generated/App-Info.plist
       properties:
@@ -40,6 +45,11 @@ targets:
     type: app-extension
     platform: iOS
     sources: [iphone/Keyboard.swift]
+    entitlements:
+      path: Keyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.you.life360
     info:
       path: Generated/Keyboard-Info.plist
       properties:
